@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'GCDWeakTimer'
-  s.version          = '0.1.0'
+  s.version          = '1.0.0'
   s.summary          = '基于GCD的定时器'
 
   s.homepage         = 'https://github.com/xq-120/GCDWeakTimer'
