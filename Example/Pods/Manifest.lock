@@ -1,0 +1,16 @@
+PODS:
+  - GCDWeakTimer (0.1.0)
+
+DEPENDENCIES:
+  - GCDWeakTimer (from `../`)
+
+EXTERNAL SOURCES:
+  GCDWeakTimer:
+    :path: "../"
+
+SPEC CHECKSUMS:
+  GCDWeakTimer: dcb5ab9fb9d1dc780556ea9b17486aa9a2cb61d0
+
+PODFILE CHECKSUM: 73aa8e7da087cb1e5a7db11adbd4e1c8ba44eaed
+
+COCOAPODS: 1.11.3
