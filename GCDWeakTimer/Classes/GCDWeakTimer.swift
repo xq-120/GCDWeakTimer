@@ -76,10 +76,10 @@ import UIKit
         self.dispatchQueue = dispatchQueue ?? DispatchQueue.main
         self.dispatchQueue.setSpecific(key: queueKey, value: queueKeyValue)
         self.privateSerialQueue = DispatchQueue.init(label: "www.xq.weakTimerSerialQueue", target: self.dispatchQueue)
-        super.init()
         
         self._status = .initial
-        self.timer = self.configureTimer(interval: self._timeInterval, tolerance: self._tolerance, repeating: repeats, queue: self.privateSerialQueue)
+        
+        super.init()
     }
     
     /// 启动定时器。
@@ -88,12 +88,14 @@ import UIKit
     /// 如果定时器已经被销毁，则重新创建一个并启动。
     @objc open func start() {
         self.lock.lock()
-        let status = self._status
-        switch status {
-        case .initial, .suspend:
+        switch self._status {
+        case .suspend:
+            if self.timer == nil {
+                self.timer = self.configureTimer(interval: self._timeInterval, tolerance: self._tolerance, repeating: self._repeats, queue: self.privateSerialQueue)
+            }
             self._status = .running
             self.timer?.resume()
-        case .invalid:
+        case .initial, .invalid:
             self.timer = self.configureTimer(interval: self._timeInterval, tolerance: self._tolerance, repeating: self._repeats, queue: self.privateSerialQueue)
             self._status = .running
             self.timer?.resume()
@@ -153,10 +155,34 @@ import UIKit
     /// 暂停定时器
     ///
     /// 如果定时器不在运行中则无效
+    @objc open func pause() {
+        self.lock.lock()
+        if self._status == .suspend || self._status == .invalid || self._status == .initial {
+            if self._status == .suspend && self.timer != nil {
+                self.timer?.resume()
+                self.timer?.cancel()
+                self.timer = nil
+            }
+            self.lock.unlock()
+            return
+        }
+        self._status = .suspend
+        self.timer?.cancel()
+        self.timer = nil
+        self.lock.unlock()
+    }
+    
+    /// 暂停定时器
+    ///
+    /// 如果定时器不在运行中则无效。
+    ///
+    /// note:系统的suspend()方法，调用后只是不回调事件处理方法，但时间间隔依然在计算。
+    /// 比如：一个间隔3秒的定时器，第3秒触发后，第4秒调用suspend暂停1秒，
+    /// 第5秒调用resume继续，到第6秒时事件处理方法会被回调，而不是第8秒被回调。
+    /// 这有可能会导致UI出现奇怪现象。如果这不是你想要的，请使用pause方法。
     @objc open func suspend() {
         self.lock.lock()
-        let status = self._status
-        if status != .running {
+        if self._status == .suspend || self._status == .invalid || self._status == .initial {
             self.lock.unlock()
             return
         }
@@ -167,13 +193,15 @@ import UIKit
     
     /// 继续运行定时器
     ///
-    /// 如果定时器已经销毁或正在运行则无效
+    /// 如果定时器正在运行或已经销毁则无效
     @objc open func resume() {
         self.lock.lock()
-        let status = self._status
-        if status == .invalid || status == .running {
+        if self._status == .running || self._status == .invalid {
             self.lock.unlock()
             return
+        }
+        if self.timer == nil {
+            self.timer = self.configureTimer(interval: self._timeInterval, tolerance: self._tolerance, repeating: self._repeats, queue: self.privateSerialQueue)
         }
         self._status = .running
         self.timer?.resume()
@@ -215,12 +243,12 @@ import UIKit
     /// 停止后，可调用start重新启动定时器。
     @objc open func invalidate() {
         self.lock.lock()
-        let status = self._status
-        if status == .invalid || self.timer == nil {
+        if self._status == .invalid || self.timer == nil {
+            self._status = .invalid
             self.lock.unlock()
             return
         }
-        if status != .running {
+        if self._status == .suspend {
             self.timer?.resume()
         }
         self._status = .invalid
