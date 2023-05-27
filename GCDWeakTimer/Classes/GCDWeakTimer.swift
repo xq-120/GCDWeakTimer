@@ -7,6 +7,13 @@
 
 import UIKit
 
+/**
+ 状态图：
+          --> suspend --->
+         /      ↑↓        \
+ initial ---> running <--> invalid
+ */
+
 @objc public enum GCDWeakTimerStatus: Int {
     case initial
     case running
@@ -162,6 +169,8 @@ import UIKit
                 self.timer?.resume()
                 self.timer?.cancel()
                 self.timer = nil
+            } else if self._status == .initial {
+                self._status = .suspend
             }
             self.lock.unlock()
             return
@@ -183,6 +192,9 @@ import UIKit
     @objc open func suspend() {
         self.lock.lock()
         if self._status == .suspend || self._status == .invalid || self._status == .initial {
+            if self._status == .initial {
+                self._status = .suspend
+            }
             self.lock.unlock()
             return
         }
